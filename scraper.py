@@ -40,11 +40,11 @@ urls = worksheet.col_values(1)[1:]  # Ambil link dari kolom pertama, skip header
 USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36"
 
 # **Batas jumlah request berjalan bersamaan**
-semaphore = asyncio.Semaphore(2)  # 🔥 Kurangi ke 2 supaya lebih aman
+semaphore = asyncio.Semaphore(2)  # Coba turunin jadi 2 request paralel
 
 async def random_delay():
     """Tambahin delay random supaya lebih manusiawi"""
-    delay = random.uniform(2, 5)  # 🔥 Ubah ke 2-5 detik
+    delay = random.uniform(1, 3)
     print(f"⏳ Delay {delay:.2f} detik sebelum request...")
     await asyncio.sleep(delay)
 
@@ -53,13 +53,13 @@ async def scrape_tokopedia(context, url, retry=0):
     async with semaphore:
         await random_delay()  # 🔥 Tambahin delay random sebelum request
 
-        page = await context.new_page()  # Buka tab baru
+        page = await context.new_page()
         page.set_default_navigation_timeout(15000)  # Timeout global 15 detik
 
         try:
             print(f"🔥 Scraping: {url}")
-            await page.goto(url, wait_until="domcontentloaded", timeout=20000)  # 🔥 Tunggu DOM, bukan `load`
-            await page.wait_for_selector("h1", timeout=10000)  # Tunggu elemen muncul (maks 10 detik)
+            await page.goto(url, timeout=20000)  # Timeout 20 detik
+            await page.wait_for_selector("h1", timeout=10000)
 
             # **Set viewport seperti device asli**
             await page.set_viewport_size({"width": 390, "height": 844})
@@ -91,16 +91,20 @@ async def scrape_tokopedia(context, url, retry=0):
         except Exception as e:
             print(f"⚠️ Error scraping {url}: {e}")
 
-            # **🔄 Retry hanya jika HTTP/2 Error**
-            if retry < 2 and "HTTP/2" in str(e):
+            if "HTTP/2 Error" in str(e):
+                print("🔄 HTTP/2 ERROR, RELOADING PAGE...")
+                await page.reload()
+                await asyncio.sleep(random.uniform(1, 3))  # Kasih delay sebelum coba lagi
+
+            if retry < 2:
                 print(f"🔄 Retry {retry + 1}/2 untuk {url}...")
-                await page.close()  # 🔥 Tutup page sebelum retry
                 return await scrape_tokopedia(context, url, retry + 1)
 
+            print(f"❌ Gagal scraping setelah 2 retry: {url}")
             return [url, "GAGAL", "GAGAL", "GAGAL"]
 
         finally:
-            await page.close()  # Tutup tab setelah selesai
+            await page.close()
 
 async def scrape_all():
     """Scraping semua produk secara paralel dengan batas maksimum request"""
@@ -108,10 +112,7 @@ async def scrape_all():
         print(f"🕵️‍♂️ Menggunakan User-Agent: {USER_AGENT}")
 
         browser = await p.webkit.launch(headless=True)
-        context = await browser.new_context(
-            user_agent=USER_AGENT,
-            extra_http_headers={"Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7"}
-        )  # 🔥 Tambahkan Accept-Language supaya lebih manusiawi
+        context = await browser.new_context(user_agent=USER_AGENT)
 
         try:
             tasks = [scrape_tokopedia(context, url) for url in urls]
@@ -135,7 +136,7 @@ async def main():
         {"range": f"A2:D{len(results) + 1}", "values": results},
         {"range": "G1", "values": [[f"Last Updated (WIB): {timestamp}"]]}
     ])
-    
+
     print("✅ Data berhasil di-update dengan jam UTC+7!")
 
 # **Jalankan Scraper**
