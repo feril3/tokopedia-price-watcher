@@ -35,49 +35,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade setuptools wheel
           pip install --use-deprecated=legacy-resolver -r requirements.txt
-          pip install --upgrade tqdm  # Pastikan tqdm async tersedia
+
+      # ✅ Install tqdm Secara Manual jika Belum Ada
+      - name: Install tqdm
+        run: |
+          pip install --upgrade tqdm
           python -c "import tqdm.asyncio; print('✅ tqdm.asyncio tersedia!')" || echo "⚠️ tqdm.asyncio TIDAK TERINSTALL!"
 
-      # ✅ Cache Playwright Browsers
-      - name: Cache Playwright Browsers
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-browsers-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-browsers-
-
-      # 🛠 Debugging Cache
-      - name: Debug Cache
-        run: |
-          echo "📂 Checking cache files..."
-          ls -lah ~/.cache || echo "⚠️ ~/.cache NOT FOUND!"
-          ls -lah ~/.cache/ms-playwright || echo "⚠️ ~/.cache/ms-playwright NOT FOUND!"
-
-      # 🔍 Cek Playwright Terinstall atau Tidak
-      - name: Check Playwright Installation
-        id: check_playwright
-        run: |
-          if [ -d "$HOME/.cache/ms-playwright" ]; then
-            echo "✅ Playwright sudah ada di cache"
-            echo "found=true" >> $GITHUB_ENV
-          else
-            echo "⚠️ Playwright belum terinstall"
-            echo "found=false" >> $GITHUB_ENV
-          fi
-
-      # ⚡ Install Playwright Jika Tidak Ditemukan
-      - name: Install Playwright
-        if: env.found == 'false'
-        run: |
-          echo "⚡ Playwright belum ada, menginstall sekarang..."
-          npx playwright install --with-deps
-          npx playwright --version
-
-      # 🔑 Buat Credentials File
-      - name: Create Credentials File
-        run: |
-          echo "${{ secrets.CREDENTIALS_JSON }}" | base64 -d > credentials.json
+      # 🧐 Debug: Cek Semua Paket yang Terinstall
+      - name: List Installed Packages
+        run: pip list
 
       # 🚀 Jalankan Scraper
       - name: Run Scraper
