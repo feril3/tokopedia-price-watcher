@@ -62,9 +62,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-browsers-
 
-      - name: Install Playwright & Fix Dependencies
+      - name: Cek & Install Playwright Jika Belum Ada
         run: |
-          playwright install --with-deps
+          if [ ! -d "~/.cache/ms-playwright" ]; then
+            echo "Playwright belum terinstall, install sekarang..."
+            playwright install --with-deps
+          else
+            echo "Playwright sudah terinstall, skip install."
+          fi
 
       - name: Create Credentials File
         run: |
