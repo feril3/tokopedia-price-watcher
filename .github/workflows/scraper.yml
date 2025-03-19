@@ -33,11 +33,14 @@ jobs:
         run: |
           echo "nameserver 1.1.1.1" | sudo tee /etc/resolv.conf > /dev/null
 
-      - name: Install Dependencies System untuk Playwright
+      - name: Install System Dependencies untuk Playwright
         run: |
-          sudo apt update && sudo apt install -y libwoff1 libwoff2-1 libopus0 libharfbuzz-bin libgstreamer-gl1.0-0 libgstreamer-plugins-bad1.0-0 libenchant1c2a libhyphen0 libgles2-mesa
+          sudo apt update
+          sudo apt install -y libwoff2-1 libwoff2-dev libopus0 libharfbuzz-bin \
+                              libgstreamer-gl1.0-0 libgstreamer-plugins-bad1.0-0 \
+                              libenchant1c2a libhyphen0 libgles2-mesa
 
-      - name: Cache Dependencies
+      - name: Cache Python Dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
@@ -54,13 +57,13 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-browsers
+          key: ${{ runner.os }}-playwright-browsers-${{ runner.arch }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
+            ${{ runner.os }}-playwright-browsers-
 
       - name: Install Playwright & Fix Dependencies
         run: |
-          playwright install --with-deps
+          playwright install webkit --with-deps
 
       - name: Create Credentials File
         run: |
