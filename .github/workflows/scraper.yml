@@ -3,7 +3,7 @@ name: Scrape Tokopedia Prices
 on:
   schedule:
     - cron: '0 0 * * *'  # Menjalankan tiap hari jam 07:00 WIB (00:00 UTC)
-  workflow_dispatch:
+  workflow_dispatch:  # Bisa dijalankan manual juga
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.10'
       
-      - name: Cache Dependencies
+      - name: Cache Dependencies (pip)
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
@@ -33,23 +33,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-- name: Cache Playwright Browsers
-  uses: actions/cache@v3
-  with:
-    path: ~/.cache/ms-playwright
-    key: ${{ runner.os }}-playwright-browsers
-    restore-keys: |
-      ${{ runner.os }}-playwright-
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-browsers
+          restore-keys: |
+            ${{ runner.os }}-playwright-
 
-- name: Install Playwright (Skip Browsers)
-  run: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-    playwright install --with-deps
+      - name: Install Playwright (Jika Belum Ada)
+        run: |
+          playwright install --with-deps
 
       - name: Create Credentials File
         run: |
           echo "${{ secrets.CREDENTIALS_JSON }}" | base64 -d > credentials.json
+
+      - name: Debugging - Cek Credentials File
+        run: |
+          ls -l credentials.json
+          head -n 5 credentials.json  # Cek 5 baris pertama buat verifikasi
 
       - name: Run Scraper
         run: python scraper.py
