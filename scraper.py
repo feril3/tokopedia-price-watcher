@@ -18,7 +18,7 @@ if os.path.exists(CREDENTIALS_PATH):
 else:
     creds_json = os.getenv("CREDENTIALS_JSON")
     if not creds_json:
-        raise ValueError("❌ ERROR: Credential tidak ditemukan!", flush=True)
+        raise ValueError("❌ ERROR: Credential tidak ditemukan!")
     creds_dict = json.loads(creds_json)
 
 # **Tambahkan scope yang benar**
