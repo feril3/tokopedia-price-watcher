@@ -12,11 +12,9 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
     steps:
-      # 📥 Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 🛠 Setup Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -31,22 +29,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # 🔥 Install Python Dependencies (Pastikan tqdm Terinstall)
+      # ✅ Install Python Dependencies
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --upgrade setuptools wheel
           pip install --use-deprecated=legacy-resolver -r requirements.txt
-
-      # ✅ Install tqdm Secara Manual jika Belum Ada
-      - name: Install tqdm
-        run: |
-          pip install --upgrade tqdm
-          python -c "import tqdm.asyncio; print('✅ tqdm.asyncio tersedia!')" || echo "⚠️ tqdm.asyncio TIDAK TERINSTALL!"
-
-      # 🧐 Debug: Cek Semua Paket yang Terinstall
-      - name: List Installed Packages
-        run: pip list
 
       # ✅ Cache Playwright Browsers
       - name: Cache Playwright Browsers
@@ -57,35 +44,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-browsers-
 
-      # 🛠 Debugging Cache Playwright
-      - name: Debug Cache Playwright
+      # ✅ Cek Playwright Sudah Dicache atau Belum
+      - name: Check Playwright Cache
         run: |
-          if [ -d ~/.cache/ms-playwright ]; then
-            echo "✅ Playwright cache ditemukan!"
+          if test -f ~/.cache/ms-playwright/browsers.json; then
+            echo "✅ Playwright cache ditemukan! Skip install."
+            exit 0
           else
-            echo "⚠️ Playwright cache TIDAK ditemukan!"
+            echo "⚡ Playwright cache TIDAK ditemukan, install sekarang..."
+            playwright install --with-deps
           fi
-
-      # 🚀 Install Playwright Jika Tidak Ditemukan
-      - name: Install Playwright
-        run: |
-          playwright install --with-deps
 
       # 🔑 Buat Credentials File
       - name: Create Credentials File
         run: |
           echo "${{ secrets.CREDENTIALS_JSON }}" | base64 -d > credentials.json
-
-      # 🧐 Debugging Credentials
-      - name: Debug Credentials
-        run: |
-          if [ -f credentials.json ]; then
-            echo "✅ credentials.json ditemukan!"
-            cat credentials.json | head -c 100  # Tampilkan 100 karakter pertama untuk cek isi
-          else
-            echo "❌ credentials.json TIDAK ditemukan!"
-            exit 1
-          fi
 
       # 🚀 Jalankan Scraper
       - name: Run Scraper
