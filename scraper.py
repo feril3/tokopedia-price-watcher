@@ -1,11 +1,22 @@
 import asyncio
 from playwright.async_api import async_playwright
 import gspread
+import json
+import os
 import random
 from datetime import datetime
+from google.oauth2.service_account import Credentials
+
+# **Ambil credentials dari GitHub Secrets**
+creds_json = os.getenv("CREDENTIALS_JSON")  # Sesuai nama secret yang lo buat
+if not creds_json:
+    raise ValueError("❌ ERROR: Secret 'CREDENTIALS_JSON' tidak ditemukan!")
+
+creds_dict = json.loads(creds_json)  # Convert JSON string ke dictionary
+creds = Credentials.from_service_account_info(creds_dict)  # Gunakan sebagai credential
 
 # **Koneksi ke Google Sheets**
-gc = gspread.service_account(filename="credentials.json")  # Pastikan file ini ada
+gc = gspread.authorize(creds)
 sh = gc.open("Price Watcher")  # Ganti dengan nama Google Sheet lo
 worksheet = sh.sheet1
 
