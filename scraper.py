@@ -7,12 +7,15 @@ import random
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 
-# **Ambil credentials dari GitHub Secrets**
-creds_json = os.getenv("CREDENTIALS_JSON")  # Sesuai nama secret yang lo buat
-if not creds_json:
-    raise ValueError("❌ ERROR: Secret 'CREDENTIALS_JSON' tidak ditemukan!")
+# **Ambil credentials dari file credentials.json**
+CREDENTIALS_PATH = "credentials.json"
 
-creds_dict = json.loads(creds_json)  # Convert JSON string ke dictionary
+if not os.path.exists(CREDENTIALS_PATH):
+    raise ValueError("❌ ERROR: File 'credentials.json' tidak ditemukan!")
+
+with open(CREDENTIALS_PATH, "r") as file:
+    creds_dict = json.load(file)
+
 creds = Credentials.from_service_account_info(creds_dict)  # Gunakan sebagai credential
 
 # **Koneksi ke Google Sheets**
