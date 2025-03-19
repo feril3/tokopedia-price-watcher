@@ -102,7 +102,7 @@ async def scrape_all():
 
         try:
             tasks = [scrape_tokopedia(context, url) for url in urls]
-            results = await tqdm.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             return results
         finally:
             await context.close()
