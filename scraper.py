@@ -35,21 +35,18 @@ worksheet = sh.sheet1
 # **Ambil daftar link dari Google Sheet**
 urls = worksheet.col_values(1)[1:]  # Ambil link dari kolom pertama, skip header
 
-# **List User-Agent buat mobile mode**
-mobile_user_agents = [
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/537.36 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 9; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Mobile Safari/537.36"
-]
+# **Gunakan 1 User-Agent yang Stabil**
+USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36"
 
 # **Batas jumlah request berjalan bersamaan**
-semaphore = asyncio.Semaphore(2)  # Maksimum 2 request berjalan bersamaan
+semaphore = asyncio.Semaphore(3)  # Maksimum 3 request berjalan bersamaan
 
 async def scrape_tokopedia(context, url):
     """Scraping 1 halaman produk dengan Playwright Async"""
-    async with semaphore:  # Batasi jumlah request paralel
-        page = await context.new_page()  # Buka tab baru
+    async with semaphore:
+        await asyncio.sleep(random.uniform(3, 7))  # 🔥 Tambahin delay random sebelum request
 
+        page = await context.new_page()  # Buka tab baru
         try:
             print(f"🔥 Scraping: {url}")
             await page.goto(url, timeout=60000)  # Timeout 60 detik
@@ -89,11 +86,10 @@ async def scrape_tokopedia(context, url):
 async def scrape_all():
     """Scraping semua produk secara paralel dengan batas maksimum request"""
     async with async_playwright() as p:
-        user_agent = random.choice(mobile_user_agents)
-        print(f"🕵️‍♂️ Menggunakan User-Agent: {user_agent}")
+        print(f"🕵️‍♂️ Menggunakan User-Agent: {USER_AGENT}")
 
-        browser = await p.webkit.launch(headless=True)  # **Jangan pakai `async with`**
-        context = await browser.new_context(user_agent=user_agent)  # Buat browser context
+        browser = await p.webkit.launch(headless=True)
+        context = await browser.new_context(user_agent=USER_AGENT)  # Gunakan 1 User-Agent yang stabil
 
         try:
             tasks = [scrape_tokopedia(context, url) for url in urls]
