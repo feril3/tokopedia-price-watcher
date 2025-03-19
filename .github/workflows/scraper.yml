@@ -20,6 +20,7 @@ jobs:
         with:
           python-version: '3.10'
 
+      # ✅ Cache Python Dependencies
       - name: Cache Python Dependencies
         uses: actions/cache@v3
         with:
@@ -33,6 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install --use-deprecated=legacy-resolver -r requirements.txt
 
+      # ✅ Cache Playwright Browsers
       - name: Cache Playwright Browsers
         uses: actions/cache@v3
         with:
@@ -41,18 +43,43 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-browsers-
 
-      - name: Install Playwright (Skip Jika Sudah Dicache)
+      # 🛠 Debugging Cache
+      - name: Debug Cache
         run: |
-          if [ ! -d "~/.cache/ms-playwright" ]; then
-            echo "⚡ Playwright belum terinstall, menginstall sekarang..."
-            playwright install --with-deps
+          echo "📂 Checking cache files..."
+          ls -lah ~/.cache || echo "⚠️ ~/.cache NOT FOUND!"
+          ls -lah ~/.cache/ms-playwright || echo "⚠️ ~/.cache/ms-playwright NOT FOUND!"
+
+      # 🔗 Link Cache ke Path yang Benar
+      - name: Link Playwright Cache
+        run: |
+          mkdir -p ~/.cache
+          ln -sfn /home/runner/.cache/ms-playwright ~/.cache/ms-playwright
+          echo "🔗 Playwright cache linked!"
+
+      # 🧐 Cek Playwright Version
+      - name: Check Playwright Version
+        run: |
+          if command -v npx &> /dev/null
+          then
+            echo "🕵️ Checking Playwright version..."
+            npx playwright --version || echo "⚠️ Playwright NOT FOUND!"
           else
-            echo "✅ Playwright sudah dicache, skip install."
+            echo "⚠️ NPX NOT INSTALLED!"
           fi
 
+      # ⚡ Install Playwright Jika Tidak Ditemukan
+      - name: Install Playwright
+        if: ${{ failure() }}  # Hanya install jika langkah sebelumnya gagal
+        run: |
+          echo "⚡ Playwright not found, installing..."
+          npx playwright install --with-deps
+
+      # 🔑 Buat Credentials File
       - name: Create Credentials File
         run: |
           echo "${{ secrets.CREDENTIALS_JSON }}" | base64 -d > credentials.json
 
+      # 🚀 Jalankan Scraper
       - name: Run Scraper
         run: python scraper.py
