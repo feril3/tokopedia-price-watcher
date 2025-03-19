@@ -4,6 +4,7 @@ import gspread
 import json
 import os
 import random
+import pytz
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 
@@ -115,15 +116,20 @@ async def scrape_all():
 async def main():
     results = await scrape_all()
     results = [res if isinstance(res, list) else ["ERROR", "ERROR", "ERROR", "ERROR"] for res in results]
-    
+
+    # **Konversi waktu ke UTC+7 (WIB)**
+    jakarta_tz = pytz.timezone("Asia/Jakarta")
+    timestamp = datetime.now(jakarta_tz).strftime("%A, %d %B %Y - %H:%M:%S")
+
     # **Update ke Google Sheets lebih efisien**
     print("📌 Update data ke Google Sheets...")
     worksheet.batch_update([
         {"range": f"A2:D{len(results) + 1}", "values": results},
-        {"range": "G1", "values": [["Last Updated: " + datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")]]}
+        {"range": "G1", "values": [[f"Last Updated (WIB): {timestamp}"]]}
     ])
     
-    print("✅ Data berhasil di-update!")
+    print("✅ Data berhasil di-update dengan jam UTC+7!")
+
 
 # **Jalankan Scraper**
 asyncio.run(main())
