@@ -35,52 +35,35 @@ worksheet = sh.sheet1
 # **Ambil daftar link dari Google Sheet**
 urls = worksheet.col_values(1)[1:]  # Ambil link dari kolom pertama, skip header
 
-# **User-Agent Desktop Modern + Tambahkan Header Tambahan**
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-HEADERS = {
-    "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Referer": "https://www.tokopedia.com/"
-}
-
-# **Konfigurasi Browser untuk Hindari HTTP/2 Issues**
-BROWSER_ARGS = [
-    "--disable-http2",  # Nonaktifkan HTTP/2
-    "--disable-blink-features=AutomationControlled",
-    "--no-sandbox",
-    "--disable-dev-shm-usage"
-]
+# **Gunakan 1 User-Agent yang Stabil**
+USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36"
 
 # **Batas jumlah request berjalan bersamaan**
 semaphore = asyncio.Semaphore(3)  # Maksimum 3 request berjalan bersamaan
 
 async def random_delay():
     """Tambahin delay random supaya lebih manusiawi"""
-    delay = random.uniform(2, 5)  # Delay lebih pendek
+    delay = random.uniform(1, 3)  # Ubah dari 3-7 detik ke 1-3 detik
     print(f"⏳ Delay {delay:.2f} detik sebelum request...")
     await asyncio.sleep(delay)
 
 async def scrape_tokopedia(context, url, retry=0):
     """Scraping 1 halaman produk dengan Playwright Async + Retry Mechanism"""
     async with semaphore:
-        await random_delay()  # Tambahkan delay random sebelum request
+        await random_delay()  # 🔥 Tambahin delay random sebelum request
 
         page = await context.new_page()  # Buka tab baru
+        page.set_default_navigation_timeout(15000)  # Timeout global 15 detik
         try:
             print(f"🔥 Scraping: {url}")
-            await page.goto(url, timeout=120000, wait_until="domcontentloaded")  # Timeout 120 detik
-            await page.wait_for_selector("h1", timeout=20000)  # Tunggu elemen muncul (maks 20 detik)
-
-            # **Handle popup/overlay jika ada**
-            try:
-                await page.click("button[aria-label='tutup']", timeout=3000)
-            except:
-                pass
+            await page.goto(url, timeout=20000)  # Timeout 20 detik
+            await page.wait_for_selector("h1", timeout=10000)  # Tunggu elemen muncul (maks 10 detik)
 
             # **Set viewport seperti device asli**
             await page.set_viewport_size({"width": 390, "height": 844})
 
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(random.uniform(1.5, 3))  # Delay pendek biar lebih natural
+            await asyncio.sleep(random.uniform(1, 2))  # Delay pendek biar lebih natural
 
             # **Ambil Nama Produk**
             try:
@@ -105,8 +88,8 @@ async def scrape_tokopedia(context, url, retry=0):
 
         except Exception as e:
             print(f"⚠️ Error scraping {url}: {e}")
-            if retry < 3:  # 🔄 Coba lagi max 3 kali kalau error
-                print(f"🔄 Retry {retry + 1}/3 untuk {url}...")
+            if retry < 2:  # 🔄 Coba lagi max 2 kali aja
+                print(f"🔄 Retry {retry + 1}/2 untuk {url}...")
                 return await scrape_tokopedia(context, url, retry + 1)
             return [url, "GAGAL", "GAGAL", "GAGAL"]
 
@@ -114,27 +97,17 @@ async def scrape_tokopedia(context, url, retry=0):
             await page.close()  # Tutup tab setelah selesai
 
 async def scrape_all():
+    """Scraping semua produk secara paralel dengan batas maksimum request"""
     async with async_playwright() as p:
-        # **Gunakan Chromium sebagai browser**
-        browser = await p.chromium.launch(
-            headless=True,
-            args=BROWSER_ARGS,
-            chromium_sandbox=False
-        )
-        
-        # **Konfigurasi context dengan user-agent dan viewport**
-        context = await browser.new_context(
-            user_agent=USER_AGENT,
-            viewport={"width": 1920, "height": 1080},
-            bypass_csp=True
-        )
-        
-        # **Aktifkan cache untuk mengurangi request**
-        await context.route("**/*", lambda route: route.continue_())
-        
+        print(f"🕵️‍♂️ Menggunakan User-Agent: {USER_AGENT}")
+
+        browser = await p.webkit.launch(headless=True)
+        context = await browser.new_context(user_agent=USER_AGENT)  # Gunakan 1 User-Agent yang stabil
+
         try:
             tasks = [scrape_tokopedia(context, url) for url in urls]
-            return await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            return results
         finally:
             await context.close()
             await browser.close()
