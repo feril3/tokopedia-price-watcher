@@ -22,7 +22,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Create Credentials File
-        run: echo "${{ secrets.CREDENTIALS_JSON }}" > credentials.json
+        run: |
+          echo "${{ secrets.CREDENTIALS_JSON }}" | base64 --decode > credentials.json
 
       - name: Run Scraper
         run: python scraper.py
