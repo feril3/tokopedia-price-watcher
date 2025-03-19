@@ -20,24 +20,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Paksa APT Pakai HTTP/1.1
-        run: |
-          echo 'Acquire::ForceIPv4 "true"; 
-          Acquire::http::Pipeline-Depth "0"; 
-          Acquire::http::No-Cache "true"; 
-          Acquire::http::Max-Age "0"; 
-          Acquire::http::AllowRedirect "false"; 
-          Acquire::http::Http1 "true";' | sudo tee -a /etc/apt/apt.conf.d/99force-http1
-
-      - name: Install System Dependencies untuk Playwright
-        run: |
-          sudo add-apt-repository universe
-          sudo apt update && sudo apt install -y \
-            libwoff1 woff2 libopus0 libharfbuzz-bin \
-            libgstreamer-gl1.0-0 libgstreamer-plugins-bad1.0-0 \
-            libenchant-2-2 libhyphen0 mesa-utils-extra \
-            --no-install-recommends
-
       - name: Cache Python Dependencies
         uses: actions/cache@v3
         with:
@@ -54,18 +36,18 @@ jobs:
       - name: Cache Playwright Browsers
         uses: actions/cache@v3
         with:
-          path: /home/runner/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-browsers-${{ runner.arch }}
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-browsers-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-playwright-browsers-
 
-      - name: Install Playwright Jika Belum Ada
+      - name: Install Playwright (Skip Jika Sudah Dicache)
         run: |
-          if [ ! -d "/home/runner/.cache/ms-playwright" ]; then
-            echo "⚡ Playwright belum ada di cache, install sekarang..."
+          if [ ! -d "~/.cache/ms-playwright" ]; then
+            echo "⚡ Playwright belum terinstall, menginstall sekarang..."
             playwright install --with-deps
           else
-            echo "✅ Playwright sudah ter-cache, skip install."
+            echo "✅ Playwright sudah dicache, skip install."
           fi
 
       - name: Create Credentials File
