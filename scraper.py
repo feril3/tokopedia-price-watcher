@@ -5,6 +5,7 @@ import json
 import os
 import random
 import pytz
+from tqdm.asyncio import tqdm
 from datetime import datetime
 from google.oauth2.service_account import Credentials
 
@@ -17,7 +18,7 @@ if os.path.exists(CREDENTIALS_PATH):
 else:
     creds_json = os.getenv("CREDENTIALS_JSON")
     if not creds_json:
-        raise ValueError("❌ ERROR: Credential tidak ditemukan!")
+        raise ValueError("❌ ERROR: Credential tidak ditemukan!", flush=True)
     creds_dict = json.loads(creds_json)
 
 # **Tambahkan scope yang benar**
@@ -44,27 +45,23 @@ semaphore = asyncio.Semaphore(3)  # Maksimum 3 request berjalan bersamaan
 
 async def random_delay():
     """Tambahin delay random supaya lebih manusiawi"""
-    delay = random.uniform(1, 3)  # Ubah dari 3-7 detik ke 1-3 detik
-    print(f"⏳ Delay {delay:.2f} detik sebelum request...")
+    delay = random.uniform(1, 3)
+    print(f"⏳ Delay {delay:.2f} detik sebelum request...", flush=True)
     await asyncio.sleep(delay)
 
 async def scrape_tokopedia(context, url, retry=0):
     """Scraping 1 halaman produk dengan Playwright Async + Retry Mechanism"""
     async with semaphore:
-        await random_delay()  # 🔥 Tambahin delay random sebelum request
-
-        page = await context.new_page()  # Buka tab baru
+        await random_delay()
+        page = await context.new_page()
         page.set_default_navigation_timeout(15000)  # Timeout global 15 detik
         try:
-            print(f"🔥 Scraping: {url}")
-            await page.goto(url, timeout=20000)  # Timeout 20 detik
-            await page.wait_for_selector("h1", timeout=10000)  # Tunggu elemen muncul (maks 10 detik)
-
-            # **Set viewport seperti device asli**
+            print(f"🔥 Scraping: {url}", flush=True)
+            await page.goto(url, timeout=20000)
+            await page.wait_for_selector("h1", timeout=10000)
             await page.set_viewport_size({"width": 390, "height": 844})
-
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(random.uniform(1, 2))  # Delay pendek biar lebih natural
+            await asyncio.sleep(random.uniform(1, 2))
 
             # **Ambil Nama Produk**
             try:
@@ -82,32 +79,30 @@ async def scrape_tokopedia(context, url, retry=0):
             try:
                 harga_asli = await page.inner_text("span[data-testid='pdpSlashPrice']")
             except:
-                harga_asli = harga_diskon  # Kalau nggak ada harga coret, set harga asli sama dengan harga diskon
+                harga_asli = harga_diskon
 
-            print(f"✅ {nama_produk} | Harga: {harga_asli} → {harga_diskon}")
+            print(f"✅ {nama_produk} | Harga: {harga_asli} → {harga_diskon}", flush=True)
             return [url, nama_produk, harga_asli, harga_diskon]
 
         except Exception as e:
-            print(f"⚠️ Error scraping {url}: {e}")
-            if retry < 2:  # 🔄 Coba lagi max 2 kali aja
-                print(f"🔄 Retry {retry + 1}/2 untuk {url}...")
+            print(f"⚠️ Error scraping {url}: {e}", flush=True)
+            if retry < 2:
+                print(f"🔄 Retry {retry + 1}/2 untuk {url}...", flush=True)
                 return await scrape_tokopedia(context, url, retry + 1)
             return [url, "GAGAL", "GAGAL", "GAGAL"]
-
         finally:
-            await page.close()  # Tutup tab setelah selesai
+            await page.close()
 
 async def scrape_all():
     """Scraping semua produk secara paralel dengan batas maksimum request"""
     async with async_playwright() as p:
-        print(f"🕵️‍♂️ Menggunakan User-Agent: {USER_AGENT}")
-
+        print(f"🕵️‍♂️ Menggunakan User-Agent: {USER_AGENT}", flush=True)
         browser = await p.webkit.launch(headless=True)
-        context = await browser.new_context(user_agent=USER_AGENT)  # Gunakan 1 User-Agent yang stabil
+        context = await browser.new_context(user_agent=USER_AGENT)
 
         try:
             tasks = [scrape_tokopedia(context, url) for url in urls]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+            results = await tqdm.gather(*tasks, return_exceptions=True)
             return results
         finally:
             await context.close()
@@ -122,14 +117,13 @@ async def main():
     timestamp = datetime.now(jakarta_tz).strftime("%A, %d %B %Y - %H:%M:%S")
 
     # **Update ke Google Sheets lebih efisien**
-    print("📌 Update data ke Google Sheets...")
+    print("📌 Update data ke Google Sheets...", flush=True)
     worksheet.batch_update([
         {"range": f"A2:D{len(results) + 1}", "values": results},
-        {"range": "G1", "values": [[f"Last Updated (WIB): {timestamp}"]]}
+        {"range": "G1", "values": [[f"Last Updated (WIB): {timestamp}"]]},
     ])
     
-    print("✅ Data berhasil di-update dengan jam UTC+7!")
-
+    print("✅ Data berhasil di-update dengan jam UTC+7!", flush=True)
 
 # **Jalankan Scraper**
 asyncio.run(main())
