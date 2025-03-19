@@ -39,28 +39,24 @@ urls = worksheet.col_values(1)[1:]  # Ambil link dari kolom pertama, skip header
 USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36"
 
 # **Batas jumlah request berjalan bersamaan**
-semaphore = asyncio.Semaphore(3)  # Maksimum 3 request berjalan bersamaan
-
-# **Gunakan Proxy Opsional**
-USE_PROXY = False  # Ubah ke True kalau mau pakai proxy
-PROXY_SERVER = "http://your-proxy-server:port"  # Ganti dengan proxy kalau mau pakai
+semaphore = asyncio.Semaphore(5)  # Maksimum 5 request berjalan bersamaan
 
 async def random_delay():
     """Tambahin delay random supaya lebih manusiawi"""
-    delay = random.uniform(3, 7)
+    delay = random.uniform(2, 5)  # Delay lebih pendek
     print(f"⏳ Delay {delay:.2f} detik sebelum request...")
     await asyncio.sleep(delay)
 
 async def scrape_tokopedia(context, url, retry=0):
     """Scraping 1 halaman produk dengan Playwright Async + Retry Mechanism"""
     async with semaphore:
-        await random_delay()  # 🔥 Tambahin delay random sebelum request
+        await random_delay()  # Tambahkan delay random sebelum request
 
         page = await context.new_page()  # Buka tab baru
         try:
             print(f"🔥 Scraping: {url}")
-            await page.goto(url, timeout=60000)  # Timeout 60 detik
-            await page.wait_for_selector("h1", timeout=15000)  # Tunggu elemen muncul (maks 15 detik)
+            await page.goto(url, timeout=30000)  # Timeout 30 detik
+            await page.wait_for_selector("h1", timeout=10000)  # Tunggu elemen muncul (maks 10 detik)
 
             # **Set viewport seperti device asli**
             await page.set_viewport_size({"width": 390, "height": 844})
@@ -102,35 +98,4 @@ async def scrape_tokopedia(context, url, retry=0):
 async def scrape_all():
     """Scraping semua produk secara paralel dengan batas maksimum request"""
     async with async_playwright() as p:
-        print(f"🕵️‍♂️ Menggunakan User-Agent: {USER_AGENT}")
-
-        launch_options = {"headless": True}
-        if USE_PROXY:
-            launch_options["proxy"] = {"server": PROXY_SERVER}
-
-        browser = await p.webkit.launch(**launch_options)
-        context = await browser.new_context(user_agent=USER_AGENT)  # Gunakan 1 User-Agent yang stabil
-
-        try:
-            tasks = [scrape_tokopedia(context, url) for url in urls]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            return results
-        finally:
-            await context.close()
-            await browser.close()
-
-async def main():
-    results = await scrape_all()
-    results = [res if isinstance(res, list) else ["ERROR", "ERROR", "ERROR", "ERROR"] for res in results]
-    
-    # **Update ke Google Sheets lebih efisien**
-    print("📌 Update data ke Google Sheets...")
-    worksheet.batch_update([
-        {"range": f"A2:D{len(results) + 1}", "values": results},
-        {"range": "G1", "values": [["Last Updated: " + datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")]]}
-    ])
-    
-    print("✅ Data berhasil di-update!")
-
-# **Jalankan Scraper**
-asyncio.run(main())
+        print(f"🕵️‍♂️ Menggunakan User-Agent
