@@ -35,11 +35,23 @@ worksheet = sh.sheet1
 # **Ambil daftar link dari Google Sheet**
 urls = worksheet.col_values(1)[1:]  # Ambil link dari kolom pertama, skip header
 
-# **Gunakan 1 User-Agent yang Stabil**
-USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Mobile Safari/537.36"
+# **User-Agent Desktop Modern + Tambahkan Header Tambahan**
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+HEADERS = {
+    "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Referer": "https://www.tokopedia.com/"
+}
+
+# **Konfigurasi Browser untuk Hindari HTTP/2 Issues**
+BROWSER_ARGS = [
+    "--disable-http2",  # Nonaktifkan HTTP/2
+    "--disable-blink-features=AutomationControlled",
+    "--no-sandbox",
+    "--disable-dev-shm-usage"
+]
 
 # **Batas jumlah request berjalan bersamaan**
-semaphore = asyncio.Semaphore(5)  # Maksimum 5 request berjalan bersamaan
+semaphore = asyncio.Semaphore(3)  # Maksimum 3 request berjalan bersamaan
 
 async def random_delay():
     """Tambahin delay random supaya lebih manusiawi"""
@@ -55,8 +67,14 @@ async def scrape_tokopedia(context, url, retry=0):
         page = await context.new_page()  # Buka tab baru
         try:
             print(f"🔥 Scraping: {url}")
-            await page.goto(url, timeout=30000)  # Timeout 30 detik
-            await page.wait_for_selector("h1", timeout=10000)  # Tunggu elemen muncul (maks 10 detik)
+            await page.goto(url, timeout=120000, wait_until="domcontentloaded")  # Timeout 120 detik
+            await page.wait_for_selector("h1", timeout=20000)  # Tunggu elemen muncul (maks 20 detik)
+
+            # **Handle popup/overlay jika ada**
+            try:
+                await page.click("button[aria-label='tutup']", timeout=3000)
+            except:
+                pass
 
             # **Set viewport seperti device asli**
             await page.set_viewport_size({"width": 390, "height": 844})
@@ -96,6 +114,43 @@ async def scrape_tokopedia(context, url, retry=0):
             await page.close()  # Tutup tab setelah selesai
 
 async def scrape_all():
-    """Scraping semua produk secara paralel dengan batas maksimum request"""
     async with async_playwright() as p:
-        print(f"🕵️‍♂️ Menggunakan User-Agent
+        # **Gunakan Chromium sebagai browser**
+        browser = await p.chromium.launch(
+            headless=True,
+            args=BROWSER_ARGS,
+            chromium_sandbox=False
+        )
+        
+        # **Konfigurasi context dengan user-agent dan viewport**
+        context = await browser.new_context(
+            user_agent=USER_AGENT,
+            viewport={"width": 1920, "height": 1080},
+            bypass_csp=True
+        )
+        
+        # **Aktifkan cache untuk mengurangi request**
+        await context.route("**/*", lambda route: route.continue_())
+        
+        try:
+            tasks = [scrape_tokopedia(context, url) for url in urls]
+            return await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            await context.close()
+            await browser.close()
+
+async def main():
+    results = await scrape_all()
+    results = [res if isinstance(res, list) else ["ERROR", "ERROR", "ERROR", "ERROR"] for res in results]
+    
+    # **Update ke Google Sheets lebih efisien**
+    print("📌 Update data ke Google Sheets...")
+    worksheet.batch_update([
+        {"range": f"A2:D{len(results) + 1}", "values": results},
+        {"range": "G1", "values": [["Last Updated: " + datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")]]}
+    ])
+    
+    print("✅ Data berhasil di-update!")
+
+# **Jalankan Scraper**
+asyncio.run(main())
