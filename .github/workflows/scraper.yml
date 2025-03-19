@@ -12,9 +12,11 @@ jobs:
   scrape:
     runs-on: ubuntu-latest
     steps:
+      # 📥 Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # 🛠 Setup Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -45,6 +47,45 @@ jobs:
       # 🧐 Debug: Cek Semua Paket yang Terinstall
       - name: List Installed Packages
         run: pip list
+
+      # ✅ Cache Playwright Browsers
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-browsers-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-browsers-
+
+      # 🛠 Debugging Cache Playwright
+      - name: Debug Cache Playwright
+        run: |
+          if [ -d ~/.cache/ms-playwright ]; then
+            echo "✅ Playwright cache ditemukan!"
+          else
+            echo "⚠️ Playwright cache TIDAK ditemukan!"
+          fi
+
+      # 🚀 Install Playwright Jika Tidak Ditemukan
+      - name: Install Playwright
+        run: |
+          playwright install --with-deps
+
+      # 🔑 Buat Credentials File
+      - name: Create Credentials File
+        run: |
+          echo "${{ secrets.CREDENTIALS_JSON }}" | base64 -d > credentials.json
+
+      # 🧐 Debugging Credentials
+      - name: Debug Credentials
+        run: |
+          if [ -f credentials.json ]; then
+            echo "✅ credentials.json ditemukan!"
+            cat credentials.json | head -c 100  # Tampilkan 100 karakter pertama untuk cek isi
+          else
+            echo "❌ credentials.json TIDAK ditemukan!"
+            exit 1
+          fi
 
       # 🚀 Jalankan Scraper
       - name: Run Scraper
