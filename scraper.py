@@ -41,16 +41,29 @@ USER_AGENT = "Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTM
 # **Batas jumlah request berjalan bersamaan**
 semaphore = asyncio.Semaphore(3)  # Maksimum 3 request berjalan bersamaan
 
-async def scrape_tokopedia(context, url):
-    """Scraping 1 halaman produk dengan Playwright Async"""
+# **Gunakan Proxy Opsional**
+USE_PROXY = False  # Ubah ke True kalau mau pakai proxy
+PROXY_SERVER = "http://your-proxy-server:port"  # Ganti dengan proxy kalau mau pakai
+
+async def random_delay():
+    """Tambahin delay random supaya lebih manusiawi"""
+    delay = random.uniform(3, 7)
+    print(f"⏳ Delay {delay:.2f} detik sebelum request...")
+    await asyncio.sleep(delay)
+
+async def scrape_tokopedia(context, url, retry=0):
+    """Scraping 1 halaman produk dengan Playwright Async + Retry Mechanism"""
     async with semaphore:
-        await asyncio.sleep(random.uniform(3, 7))  # 🔥 Tambahin delay random sebelum request
+        await random_delay()  # 🔥 Tambahin delay random sebelum request
 
         page = await context.new_page()  # Buka tab baru
         try:
             print(f"🔥 Scraping: {url}")
             await page.goto(url, timeout=60000)  # Timeout 60 detik
             await page.wait_for_selector("h1", timeout=15000)  # Tunggu elemen muncul (maks 15 detik)
+
+            # **Set viewport seperti device asli**
+            await page.set_viewport_size({"width": 390, "height": 844})
 
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(random.uniform(1.5, 3))  # Delay pendek biar lebih natural
@@ -78,6 +91,9 @@ async def scrape_tokopedia(context, url):
 
         except Exception as e:
             print(f"⚠️ Error scraping {url}: {e}")
+            if retry < 3:  # 🔄 Coba lagi max 3 kali kalau error
+                print(f"🔄 Retry {retry + 1}/3 untuk {url}...")
+                return await scrape_tokopedia(context, url, retry + 1)
             return [url, "GAGAL", "GAGAL", "GAGAL"]
 
         finally:
@@ -88,7 +104,11 @@ async def scrape_all():
     async with async_playwright() as p:
         print(f"🕵️‍♂️ Menggunakan User-Agent: {USER_AGENT}")
 
-        browser = await p.webkit.launch(headless=True)
+        launch_options = {"headless": True}
+        if USE_PROXY:
+            launch_options["proxy"] = {"server": PROXY_SERVER}
+
+        browser = await p.webkit.launch(**launch_options)
         context = await browser.new_context(user_agent=USER_AGENT)  # Gunakan 1 User-Agent yang stabil
 
         try:
