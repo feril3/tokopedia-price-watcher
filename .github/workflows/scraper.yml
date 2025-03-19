@@ -19,14 +19,14 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      
+
       - name: Paksa APT Pakai HTTP/1.1
         run: |
           echo 'Acquire::ForceIPv4 "true"; Acquire::http::Pipeline-Depth "0"; Acquire::http::No-Cache "true"; Acquire::http::Max-Age "0"; Acquire::http::AllowRedirect "false";' | sudo tee -a /etc/apt/apt.conf.d/99force-ipv4
 
       - name: Ganti Mirror Repository ke Leaseweb
         run: |
-          sudo sed -i 's|http://archive.ubuntu.com/ubuntu|http://mirror.leaseweb.com/ubuntu/|g' /etc/apt/sources.list
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://mirror.leaseweb.com/ubuntu/|g' /etc/apt/sources.list
           sudo apt update
 
       - name: Set Cloudflare DNS
@@ -36,9 +36,9 @@ jobs:
       - name: Install System Dependencies untuk Playwright
         run: |
           sudo apt update
-          sudo apt install -y libwoff2-1 libwoff2-dev libopus0 libharfbuzz-bin \
+          sudo apt install -y libwoff2-2 libwoff2-dev libopus0 libharfbuzz-bin \
                               libgstreamer-gl1.0-0 libgstreamer-plugins-bad1.0-0 \
-                              libenchant1c2a libhyphen0 libgles2-mesa
+                              libenchant-2-2 libhyphen0 mesa-utils-extra
 
       - name: Cache Python Dependencies
         uses: actions/cache@v3
