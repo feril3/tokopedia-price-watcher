@@ -17,8 +17,12 @@ with open(CREDENTIALS_PATH, "r") as file:
     creds_dict = json.load(file)
 
 # **Tambahkan scope yang benar**
-scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
+creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
 
 # **Koneksi ke Google Sheets**
 gc = gspread.authorize(creds)
