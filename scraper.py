@@ -43,7 +43,7 @@ mobile_user_agents = [
 ]
 
 # **Batas jumlah request berjalan bersamaan**
-semaphore = asyncio.Semaphore(5)  # Maksimum 5 request berjalan bersamaan
+semaphore = asyncio.Semaphore(3)  # Maksimum 5 request berjalan bersamaan
 
 async def scrape_tokopedia(context, url):
     """Scraping 1 halaman produk dengan Playwright Async"""
