@@ -20,6 +20,15 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Paksa APT Pakai HTTP/1.1
+        run: |
+          echo 'Acquire::ForceIPv4 "true"; 
+          Acquire::http::Pipeline-Depth "0"; 
+          Acquire::http::No-Cache "true"; 
+          Acquire::http::Max-Age "0"; 
+          Acquire::http::AllowRedirect "false"; 
+          Acquire::http::Http1 "true";' | sudo tee -a /etc/apt/apt.conf.d/99force-http1
+
       - name: Enable Universe Repository
         run: |
           sudo add-apt-repository universe
