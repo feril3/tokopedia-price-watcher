@@ -1,0 +1,28 @@
+ 
+name: Scrape Tokopedia Prices
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Menjalankan tiap hari jam 07:00 WIB (00:00 UTC)
+  workflow_dispatch:  # Bisa dijalankan manual juga
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create Credentials File
+        run: echo "${{ secrets.CREDENTIALS_JSON }}" > credentials.json
+
+      - name: Run Scraper
+        run: python scraper.py
