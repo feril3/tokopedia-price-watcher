@@ -16,7 +16,9 @@ if not os.path.exists(CREDENTIALS_PATH):
 with open(CREDENTIALS_PATH, "r") as file:
     creds_dict = json.load(file)
 
-creds = Credentials.from_service_account_info(creds_dict)  # Gunakan sebagai credential
+# **Tambahkan scope yang benar**
+scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
 # **Koneksi ke Google Sheets**
 gc = gspread.authorize(creds)
@@ -38,80 +40,48 @@ semaphore = asyncio.Semaphore(5)  # Maksimum 5 request berjalan bersamaan
 
 async def scrape_tokopedia(context, url):
     """Scraping 1 halaman produk dengan Playwright Async"""
-    async with semaphore:  # Batasi jumlah request paralel
-        page = await context.new_page()  # Buka tab baru
-
-        try:
-            print(f"🔥 Scraping: {url}")
-            await page.goto(url, timeout=60000)  # Timeout 60 detik
-            await page.wait_for_selector("h1", timeout=15000)  # Tunggu elemen muncul (maks 15 detik)
-
-            # **Simulasi aktivitas manusia**
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await asyncio.sleep(random.uniform(1.5, 3))  # Delay pendek biar lebih natural
-
-            # **Ambil Nama Produk**
+    async with semaphore:
+        async with context.new_page() as page:
             try:
+                print(f"🔥 Scraping: {url}")
+                await page.goto(url, timeout=60000)
+                await page.wait_for_selector("h1", timeout=15000)
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await asyncio.sleep(random.uniform(1.5, 3))
+
                 nama_produk = await page.inner_text("h1")
-            except:
-                nama_produk = "TIDAK ADA"
+                harga_diskon = await page.inner_text("h3[data-testid='pdpProductPrice']", timeout=5000) or "TIDAK ADA"
+                harga_asli = await page.inner_text("span[data-testid='pdpSlashPrice']", timeout=5000) or harga_diskon
+                
+                print(f"✅ {nama_produk} | Harga: {harga_asli} → {harga_diskon}")
+                return [url, nama_produk, harga_asli, harga_diskon]
 
-            # **Ambil Harga Diskon (Jika Ada)**
-            try:
-                harga_diskon = await page.inner_text("h3[data-testid='pdpProductPrice']")
-            except:
-                harga_diskon = "TIDAK ADA"
-
-            # **Ambil Harga Sebelum Diskon**
-            try:
-                harga_asli = await page.inner_text("span[data-testid='pdpSlashPrice']")
-            except:
-                harga_asli = harga_diskon  # Kalau nggak ada harga coret, set harga asli sama dengan harga diskon
-
-            print(f"✅ {nama_produk} | Harga: {harga_asli} → {harga_diskon}")
-            return [url, nama_produk, harga_asli, harga_diskon]
-
-        except Exception as e:
-            print(f"⚠️ Error scraping {url}: {e}")
-            return [url, "GAGAL", "GAGAL", "GAGAL"]
-
-        finally:
-            await page.close()  # Tutup tab setelah selesai
+            except Exception as e:
+                print(f"⚠️ Error scraping {url}: {e}")
+                return [url, "GAGAL", "GAGAL", "GAGAL"]
 
 async def scrape_all():
     """Scraping semua produk secara paralel dengan batas maksimum request"""
     async with async_playwright() as p:
-        user_agent = random.choice(mobile_user_agents)  # Pilih User-Agent random
+        user_agent = random.choice(mobile_user_agents)
         print(f"🕵️‍♂️ Menggunakan User-Agent: {user_agent}")
 
-        browser = await p.webkit.launch(headless=True)  # Pakai WebKit & headless
-        context = await browser.new_context(user_agent=user_agent)  # Set user-agent di Context
-
-        try:
-            tasks = [scrape_tokopedia(context, url) for url in urls]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            # Cek kalau ada error, kasih log
-            for res in results:
-                if isinstance(res, Exception):
-                    print(f"⚠️ Error: {res}")
-
-            return results
-
-        finally:
-            await context.close()
-            await browser.close()
+        async with p.webkit.launch(headless=True) as browser:
+            async with browser.new_context(user_agent=user_agent) as context:
+                tasks = [scrape_tokopedia(context, url) for url in urls]
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                return results
 
 async def main():
     results = await scrape_all()
-
-    # **Simpan ke Google Sheets**
-    print("📌 Update data ke Google Sheets...")
-    worksheet.update(values=results, range_name="A2")
+    results = [res if isinstance(res, list) else ["ERROR", "ERROR", "ERROR", "ERROR"] for res in results]
     
-    # **Tambahkan Timestamp di Cell G1**
-    timestamp = datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")
-    worksheet.update("G1", [[f"Last Updated: {timestamp}"]])
+    # **Update ke Google Sheets lebih efisien**
+    print("📌 Update data ke Google Sheets...")
+    worksheet.batch_update([
+        {"range": "A2:D" + str(len(results) + 1), "values": results},
+        {"range": "G1", "values": [["Last Updated: " + datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")]]}
+    ])
     
     print("✅ Data berhasil di-update!")
 
