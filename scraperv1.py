@@ -146,4 +146,5 @@ async def main():
     log.info("✅ Scrape selesai!")
 
 # **Jalankan Scraper**
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
